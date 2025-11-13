@@ -1,0 +1,6 @@
+const User = require("../module/user")
+
+
+exports.getUsers = async (req, res)=>{
+    
+}
