@@ -1,0 +1,110 @@
+import turtle
+import random
+
+# Konfiguracja ekranu
+screen = turtle.Screen()
+screen.setup(width=800, height=600)
+screen.bgcolor("#001524")
+screen.tracer(0)
+
+# Rysowanie pnia
+trunk = turtle.Turtle()
+trunk.hideturtle()
+trunk.color("#5d4037")
+trunk.penup()
+trunk.goto(-20, -200)
+trunk.begin_fill()
+for _ in range(2):
+    trunk.forward(40)
+    trunk.left(90)
+    trunk.forward(40)
+    trunk.left(90)
+trunk.end_fill()
+
+# Rysowanie choinki
+tree = turtle.Turtle()
+tree.hideturtle()
+tree.color("forest green")
+
+
+def draw_layer(width, height, y_pos):
+    tree.penup()
+    tree.goto(-width / 2, y_pos)
+    tree.begin_fill()
+    tree.goto(width / 2, y_pos)
+    tree.goto(0, y_pos + height)
+    tree.goto(-width / 2, y_pos)
+    tree.end_fill()
+
+
+# Definicja warstw: (szerokość, wysokość, pozycja_y)
+layers = [(220, 110, -160), (170, 90, -80), (120, 70, -20)]
+for w, h, y in layers:
+    draw_layer(w, h, y)
+
+
+# FUNKCJA: Równomierne bombki
+def draw_ornament(x, y, color):
+    o = turtle.Turtle()
+    o.hideturtle()
+    o.penup()
+    o.goto(x, y)
+    o.dot(12, color)  # Używamy dot dla lepszej wydajności
+
+
+colors = ["red", "gold", "silver", "royalblue"]
+
+# Obliczanie pozycji bombek dla każdej warstwy
+for i, (w, h, y) in enumerate(layers):
+    # Bombki u podstawy warstwy
+    num_bombs = 5 - i  # Mniej bombek na wyższych warstwach
+    for j in range(num_bombs):
+        # Rozmieszczenie wzdłuż podstawy trójkąta
+        x_pos = -w / 3 + (j * (w * 0.66) / (num_bombs - 1)) if num_bombs > 1 else 0
+        draw_ornament(x_pos, y + 10, random.choice(colors))
+
+    # Dodatkowe bombki wyżej w tej samej warstwie
+    if i < 2:
+        draw_ornament(-w / 6, y + h / 2, random.choice(colors))
+        draw_ornament(w / 6, y + h / 2, random.choice(colors))
+
+# Gwiazda
+star = turtle.Turtle()
+star.hideturtle()
+star.color("yellow")
+star.penup()
+star.goto(-15, 50)
+star.begin_fill()
+for _ in range(5):
+    star.forward(30)
+    star.right(144)
+star.end_fill()
+
+# Płatki śniegu (uproszczone dla płynności)
+snowflakes = []
+for _ in range(50):
+    s = turtle.Turtle()
+    s.hideturtle()
+    s.color("white")
+    s.shape("circle")
+    s.shapesize(0.2, 0.2)
+    s.penup()
+    s.goto(random.randint(-400, 400), random.randint(-300, 300))
+    s.showturtle()
+    snowflakes.append(s)
+
+
+def move_snow():
+    for s in snowflakes:
+        s.sety(s.ycor() - 2)
+        if s.ycor() < -300:
+            s.goto(random.randint(-400, 400), 300)
+    screen.update()
+    screen.ontimer(move_snow, 30)
+
+
+move_snow()
+screen.mainloop()
+
+
+#Jednego razu musiałem poprosić umieśćić bombki na choince rownomiernie,ponieważ były rozrzucane poza choinką
