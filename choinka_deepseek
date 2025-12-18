@@ -1,0 +1,526 @@
+import pygame
+import random
+import sys
+import math
+
+# Inicjalizacja Pygame
+pygame.init()
+
+# Ustawienia okna
+width, height = 800, 700
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption("Świąteczna Choinka z Przewróconymi Gałęziami")
+
+# Kolory
+DARK_GREEN = (34, 139, 34)
+GREEN = (0, 128, 0)
+TREE_TRUNK_BROWN = (101, 67, 33)
+YELLOW = (255, 255, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+ORANGE = (255, 165, 0)
+PURPLE = (128, 0, 128)
+WHITE = (255, 255, 255)
+BACKGROUND_BLUE = (25, 25, 112)
+LIGHT_BLUE = (173, 216, 230)
+GOLD = (255, 215, 0)
+SILVER = (192, 192, 192)
+
+
+class Snowflake:
+    def __init__(self):
+        self.x = random.randint(0, width)
+        self.y = random.randint(-100, -10)
+        self.speed = random.randint(1, 5)
+        self.size = random.randint(2, 5)
+        self.wind = random.uniform(-0.5, 0.5)
+
+    def fall(self):
+        self.y += self.speed
+        self.x += self.wind
+
+        if self.y > height:
+            self.y = random.randint(-100, -10)
+            self.x = random.randint(0, width)
+            self.wind = random.uniform(-0.5, 0.5)
+        elif self.x < 0 or self.x > width:
+            self.x = random.randint(0, width)
+            self.y = random.randint(-100, -10)
+
+    def draw(self):
+        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), self.size)
+
+
+class Bauble:
+    def __init__(self, x, y, color, size=12):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.size = size
+        self.highlight_offset = size // 4
+        self.shine_angle = random.uniform(0, math.pi * 2)
+
+    def draw(self):
+        # Bombka
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.size)
+
+        # Odblask (obraca się)
+        highlight_x = self.x + math.cos(self.shine_angle) * self.highlight_offset
+        highlight_y = self.y + math.sin(self.shine_angle) * self.highlight_offset
+        pygame.draw.circle(screen, (255, 255, 255, 200),
+                           (int(highlight_x), int(highlight_y)),
+                           self.size // 3)
+
+        # Zawieszenie
+        pygame.draw.line(screen, SILVER,
+                         (self.x, self.y - self.size),
+                         (self.x, self.y - self.size - 6), 2)
+        pygame.draw.circle(screen, SILVER, (self.x, self.y - self.size - 8), 2)
+
+        # Animacja błysku
+        self.shine_angle += 0.02
+
+
+def draw_tree_with_flipped_branches():
+    """Rysuje choinkę z przewróconymi gałęziami (szersze na dole każdej gałęzi)"""
+
+    # Pień drzewa
+    trunk_width = 50
+    trunk_height = 100
+    trunk_x = width // 2 - trunk_width // 2
+    trunk_y = height - trunk_height - 20
+
+    # Rysujemy pień
+    pygame.draw.rect(screen, TREE_TRUNK_BROWN, (trunk_x, trunk_y, trunk_width, trunk_height))
+
+    # Tekstura pnia (słoje)
+    for i in range(4):
+        line_y = trunk_y + 10 + i * 25
+        curve_height = random.randint(2, 5)
+        # Nierówna linia dla realistycznego wyglądu
+        points = []
+        for j in range(10):
+            px = trunk_x + 5 + (trunk_width - 10) * j / 9
+            py = line_y + random.randint(-curve_height, curve_height)
+            points.append((px, py))
+
+        if len(points) > 1:
+            pygame.draw.lines(screen, (139, 90, 43), False, points, 3)
+
+    # PRZEWRÓCONE GAŁĘZIE - każda jest odwróconym trapezem
+    # Format: (top_y, bottom_y, top_width, bottom_width)
+    # bottom_width > top_width - szersze na dole każdej gałęzi!
+
+    branches = [
+        # Poziom 1 - najniższy, najszerszy
+        (height - trunk_height - 20, 480, 180, 320),
+        # Poziom 2
+        (480, 410, 160, 280),
+        # Poziom 3
+        (410, 350, 140, 240),
+        # Poziom 4
+        (350, 300, 120, 200),
+        # Poziom 5
+        (300, 260, 100, 160),
+        # Poziom 6 - najwyższy, najwęższy
+        (260, 230, 80, 120),
+    ]
+
+    # Rysujemy każdą gałąź jako odwrócony trapez
+    for i, (top_y, bottom_y, top_width, bottom_width) in enumerate(branches):
+        # Punkty trapezu (lewy górny, prawy górny, prawy dolny, lewy dolny)
+        points = [
+            (width // 2 - top_width // 2, top_y),  # lewy górny
+            (width // 2 + top_width // 2, top_y),  # prawy górny
+            (width // 2 + bottom_width // 2, bottom_y),  # prawy dolny
+            (width // 2 - bottom_width // 2, bottom_y),  # lewy dolny
+        ]
+
+        # Głębszy zielony dla dolnej części (cień)
+        shadow_green = (0, 100, 0)
+
+        # Rysujemy trapez (gałąź)
+        pygame.draw.polygon(screen, DARK_GREEN, points)
+
+        # Dodajemy teksturę igieł
+        draw_branch_texture(points, i)
+
+        # Obramowanie gałęzi
+        pygame.draw.polygon(screen, GREEN, points, 2)
+
+        # Dodajemy małe gałązki wystające
+        draw_small_branches(points, i)
+
+    return trunk_x, trunk_y, trunk_width, trunk_height, branches
+
+
+def draw_branch_texture(branch_points, level):
+    """Rysuje teksturę igieł na gałęzi"""
+    # Losowe igły wewnątrz trapezu
+    num_needles = 50 + level * 10
+
+    for _ in range(num_needles):
+        # Losowy punkt wewnątrz trapezu
+        r = random.random()
+
+        # Interpolacja między górną a dolną krawędzią
+        t = random.random()
+
+        # Lewa i prawa krawędź
+        left_x = branch_points[0][0] * (1 - t) + branch_points[3][0] * t
+        right_x = branch_points[1][0] * (1 - t) + branch_points[2][0] * t
+        y = branch_points[0][1] * (1 - t) + branch_points[3][1] * t
+
+        # Losowa pozycja x między lewą a prawą krawędzią
+        x = left_x + random.random() * (right_x - left_x)
+
+        # Losowy kąt igły (skierowanej w dół i na boki)
+        angle = random.uniform(-math.pi / 3, math.pi / 3)
+
+        # Długość igły (krótsze u góry, dłuższe na dole gałęzi)
+        length = random.randint(8, 15) * (1 + t * 0.5)
+
+        end_x = x + length * math.cos(angle)
+        end_y = y + length * math.sin(angle)
+
+        # Kolor igły (ciemniejszy na spodzie)
+        needle_color = (0, 100 + int(t * 100), 0)
+
+        pygame.draw.line(screen, needle_color,
+                         (int(x), int(y)),
+                         (int(end_x), int(end_y)), 2)
+
+
+def draw_small_branches(branch_points, level):
+    """Rysuje małe wystające gałązki"""
+    num_small_branches = 3 + level
+
+    for i in range(num_small_branches):
+        # Losowa pozycja wzdłuż gałęzi
+        t = random.random()
+
+        # Ścieżka dla małej gałązki
+        if random.random() > 0.5:
+            # Gałązka wystająca z lewej strony
+            base_x = branch_points[0][0] * (1 - t) + branch_points[3][0] * t
+            base_y = branch_points[0][1] * (1 - t) + branch_points[3][1] * t
+
+            # Punkty małej gałązki (w kształcie małego trapezu)
+            small_length = random.randint(15, 25)
+            small_width = random.randint(5, 10)
+
+            small_points = [
+                (base_x, base_y),
+                (base_x - small_length, base_y - small_width),
+                (base_x - small_length, base_y + small_width),
+            ]
+
+        else:
+            # Gałązka wystająca z prawej strony
+            base_x = branch_points[1][0] * (1 - t) + branch_points[2][0] * t
+            base_y = branch_points[1][1] * (1 - t) + branch_points[2][1] * t
+
+            small_length = random.randint(15, 25)
+            small_width = random.randint(5, 10)
+
+            small_points = [
+                (base_x, base_y),
+                (base_x + small_length, base_y - small_width),
+                (base_x + small_length, base_y + small_width),
+            ]
+
+        # Rysujemy małą gałązkę
+        pygame.draw.polygon(screen, (0, 150, 0), small_points)
+
+
+def draw_star(tree_top_y):
+    """Rysuje gwiazdę dokładnie na czubku choinki"""
+    star_x = width // 2
+    star_y = tree_top_y - 15  # Nieco powyżej czubka
+
+    # Duża, piękna gwiazda
+    outer_radius = 30
+    inner_radius = 12
+
+    points = []
+    for i in range(10):
+        angle = math.pi / 2 + 2 * math.pi * i / 10
+        radius = outer_radius if i % 2 == 0 else inner_radius
+        x = star_x + radius * math.cos(angle)
+        y = star_y + radius * math.sin(angle)
+        points.append((x, y))
+
+    # Gwiazda z gradientem
+    pygame.draw.polygon(screen, YELLOW, points)
+
+    # Drugi, mniejszy kształt dla głębi
+    inner_points = []
+    for i in range(10):
+        angle = math.pi / 2 + 2 * math.pi * i / 10 + math.pi / 10
+        radius = outer_radius * 0.7 if i % 2 == 0 else inner_radius * 0.7
+        x = star_x + radius * math.cos(angle)
+        y = star_y + radius * math.sin(angle)
+        inner_points.append((x, y))
+
+    pygame.draw.polygon(screen, GOLD, inner_points)
+
+    # Błyszczący środek
+    pygame.draw.circle(screen, (255, 255, 200), (star_x, star_y), 10)
+
+    # Promienie
+    for i in range(0, 10, 2):
+        angle = math.pi / 2 + 2 * math.pi * i / 10
+        end_x = star_x + (outer_radius + 5) * math.cos(angle)
+        end_y = star_y + (outer_radius + 5) * math.sin(angle)
+        pygame.draw.line(screen, GOLD, (star_x, star_y), (end_x, end_y), 3)
+
+    return star_x, star_y
+
+
+def create_baubles_for_flipped_branches(branches):
+    """Tworzy bombki odpowiednio rozmieszczone na przewróconych gałęziach"""
+    baubles = []
+    bauble_colors = [RED, BLUE, GOLD, ORANGE, PURPLE, SILVER, LIGHT_BLUE]
+
+    # Dla każdej gałęzi (trapezu) definiujemy pozycje bombek
+    # Bombki są rozmieszczane głównie na dolnej, szerszej części gałęzi
+
+    for branch_idx, (top_y, bottom_y, top_width, bottom_width) in enumerate(branches):
+        # Wysokość gałęzi
+        branch_height = bottom_y - top_y
+
+        # Im niższa gałąź (większy index), tym więcej bombek
+        num_baubles = 3 + branch_idx
+
+        for i in range(num_baubles):
+            # Pozycja wzdłuż gałęzi (0 = góra, 1 = dół)
+            # Więcej bombek na dole gałęzi (szersza część)
+            t = 0.3 + random.random() * 0.7  # 70% szansy na dolną część
+
+            # Szerokość na tej wysokości (interpolacja liniowa)
+            current_width = top_width + (bottom_width - top_width) * t
+
+            # Losowa pozycja x na tej szerokości (ale nie za blisko krawędzi)
+            x_offset = random.uniform(-0.4, 0.4) * current_width
+
+            bauble_x = width // 2 + x_offset
+            bauble_y = top_y + branch_height * t
+
+            # Ustalamy kolory w sposób uporządkowany
+            color_idx = (branch_idx * 2 + i) % len(bauble_colors)
+            color = bauble_colors[color_idx]
+
+            # Rozmiar bombki (większe na niższych gałęziach)
+            size = 16 - branch_idx * 1.5
+
+            # Tworzymy bombkę
+            baubles.append(Bauble(int(bauble_x), int(bauble_y), color, int(size)))
+
+    return baubles
+
+
+def draw_lights_on_branches(branches):
+    """Dodaje migające światełka na gałęziach"""
+    light_colors = [(255, 50, 50), (50, 255, 50), (50, 50, 255),
+                    (255, 255, 100), (255, 100, 255), (100, 255, 255)]
+
+    for branch_idx, (top_y, bottom_y, top_width, bottom_width) in enumerate(branches):
+        branch_height = bottom_y - top_y
+        num_lights = 5 + branch_idx * 2
+
+        for _ in range(num_lights):
+            if random.random() > 0.4:  # Miganie
+                # Pozycja na gałęzi
+                t = random.random()
+                current_width = top_width + (bottom_width - top_width) * t
+                x_offset = random.uniform(-0.45, 0.45) * current_width
+
+                light_x = width // 2 + x_offset
+                light_y = top_y + branch_height * t
+
+                color = random.choice(light_colors)
+                size = random.randint(3, 6)
+
+                # Światełko z poświatą
+                pygame.draw.circle(screen, color, (int(light_x), int(light_y)), size + 2, 1)
+                pygame.draw.circle(screen, color, (int(light_x), int(light_y)), size)
+
+
+def draw_snow_ground(trunk_y, trunk_height):
+    """Rysuje warstwę śniegu"""
+    snow_height = 70
+    snow_top = trunk_y + trunk_height
+
+    # Główna warstwa
+    pygame.draw.rect(screen, WHITE, (0, snow_top, width, snow_height))
+
+    # Tekstura (nierówna powierzchnia)
+    wave_points = []
+    for x in range(0, width + 20, 20):
+        y_variation = random.randint(-10, 5)
+        wave_points.append((x, snow_top + y_variation))
+
+    # Dodajemy punkty na końcach dla zamknięcia kształtu
+    wave_points.append((width, snow_top + snow_height))
+    wave_points.append((0, snow_top + snow_height))
+
+    pygame.draw.polygon(screen, WHITE, wave_points)
+
+    # Cień od choinki
+    shadow_points = [
+        (width // 2 - 150, snow_top),
+        (width // 2 - 100, snow_top - 15),
+        (width // 2 + 100, snow_top - 15),
+        (width // 2 + 150, snow_top),
+    ]
+    pygame.draw.polygon(screen, (240, 240, 240), shadow_points)
+
+
+def draw_text():
+    """Rysuje napisy"""
+    font_big = pygame.font.SysFont('comicsansms', 52, bold=True)
+    font_small = pygame.font.SysFont('comicsansms', 26)
+
+    # Główny napis z cieniem
+    text = font_big.render("Wesołych Świąt!", True, RED)
+    text_rect = text.get_rect(center=(width // 2, 70))
+
+    # Wielowarstwowy cień dla efektu 3D
+    for dx, dy in [(3, 3), (2, 2), (1, 1)]:
+        shadow = font_big.render("Wesołych Świąt!", True, (100, 0, 0))
+        screen.blit(shadow, (text_rect.x + dx, text_rect.y + dy))
+
+    screen.blit(text, text_rect)
+
+    # Podtytuł
+    subtext = font_small.render("Choinka z przewróconymi gałęziami", True, LIGHT_BLUE)
+    screen.blit(subtext, (width // 2 - subtext.get_width() // 2, 125))
+
+
+def draw_moon():
+    """Rysuje księżyc w tle"""
+    moon_x = 100
+    moon_y = 100
+    moon_radius = 40
+
+    # Księżyc
+    pygame.draw.circle(screen, (255, 255, 220), (moon_x, moon_y), moon_radius)
+
+    # Kratery
+    for _ in range(5):
+        crater_x = moon_x + random.randint(-30, 30)
+        crater_y = moon_y + random.randint(-30, 30)
+        crater_size = random.randint(5, 15)
+        pygame.draw.circle(screen, (220, 220, 200), (crater_x, crater_y), crater_size)
+
+
+# Inicjalizacja
+snowflakes = [Snowflake() for _ in range(250)]
+
+# Rysujemy choinkę i zapisujemy jej parametry
+trunk_x, trunk_y, trunk_width, trunk_height, branches = draw_tree_with_flipped_branches()
+
+# Tworzenie bombek
+baubles = create_baubles_for_flipped_branches(branches)
+
+# Czubek choinki (dolna krawędź ostatniej gałęzi)
+tree_top_y = branches[-1][1]  # bottom_y ostatniej gałęzi
+
+# Główna pętla
+clock = pygame.time.Clock()
+running = True
+
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+            elif event.key == pygame.K_r:
+                # Reset bombek
+                baubles = create_baubles_for_flipped_branches(branches)
+
+    # Tło
+    screen.fill(BACKGROUND_BLUE)
+
+    # Księżyc
+    draw_moon()
+
+    # Gwiazdki w tle
+    for _ in range(20):
+        star_x = random.randint(0, width)
+        star_y = random.randint(0, 200)
+        star_size = random.randint(1, 3)
+        brightness = random.randint(200, 255)
+        pygame.draw.circle(screen, (brightness, brightness, brightness),
+                           (star_x, star_y), star_size)
+
+    # Śnieg na ziemi
+    draw_snow_ground(trunk_y, trunk_height)
+
+    # Pień choinki
+    pygame.draw.rect(screen, TREE_TRUNK_BROWN, (trunk_x, trunk_y, trunk_width, trunk_height))
+
+    # Tekstura pnia
+    for i in range(4):
+        line_y = trunk_y + 10 + i * 25
+        points = []
+        for j in range(10):
+            px = trunk_x + 5 + (trunk_width - 10) * j / 9
+            py = line_y + random.randint(-3, 3)
+            points.append((px, py))
+
+        if len(points) > 1:
+            pygame.draw.lines(screen, (139, 90, 43), False, points, 3)
+
+    # Gałęzie (od najniższej do najwyższej)
+    for i, (top_y, bottom_y, top_width, bottom_width) in enumerate(branches):
+        points = [
+            (width // 2 - top_width // 2, top_y),
+            (width // 2 + top_width // 2, top_y),
+            (width // 2 + bottom_width // 2, bottom_y),
+            (width // 2 - bottom_width // 2, bottom_y),
+        ]
+
+        pygame.draw.polygon(screen, DARK_GREEN, points)
+        draw_branch_texture(points, i)
+        pygame.draw.polygon(screen, GREEN, points, 2)
+        draw_small_branches(points, i)
+
+    # Bombki
+    for bauble in baubles:
+        bauble.draw()
+
+    # Światełka
+    draw_lights_on_branches(branches)
+
+    # Gwiazda
+    draw_star(tree_top_y)
+
+    # Padający śnieg
+    for snowflake in snowflakes:
+        snowflake.fall()
+        snowflake.draw()
+
+    # Napisy
+    draw_text()
+
+    # Statystyki
+    font_info = pygame.font.SysFont('arial', 16)
+    stats = font_info.render(f"Gałęzie: {len(branches)} | Bombki: {len(baubles)}", True, WHITE)
+    screen.blit(stats, (10, height - 60))
+
+    # Instrukcja
+    info = font_info.render("ESC - wyjście | R - nowe bombki", True, LIGHT_BLUE)
+    screen.blit(info, (10, height - 30))
+
+    # Legenda kształtu
+    shape_info = font_info.render("Gałęzie: szersze ↓, węższe ↑", True, GREEN)
+    screen.blit(shape_info, (width - shape_info.get_width() - 10, height - 30))
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+sys.exit()
